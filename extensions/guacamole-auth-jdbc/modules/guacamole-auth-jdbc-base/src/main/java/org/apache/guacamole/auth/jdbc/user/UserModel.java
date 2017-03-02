@@ -21,12 +21,11 @@ package org.apache.guacamole.auth.jdbc.user;
 
 import java.sql.Date;
 import java.sql.Time;
+import java.sql.Timestamp;
 import org.apache.guacamole.auth.jdbc.base.ObjectModel;
 
 /**
  * Object representation of a Guacamole user, as represented in the database.
- *
- * @author Michael Jumper
  */
 public class UserModel extends ObjectModel {
 
@@ -40,6 +39,11 @@ public class UserModel extends ObjectModel {
      * password prior to hashing.
      */
     private byte[] passwordSalt;
+
+    /**
+     * The time this user's password was last reset.
+     */
+    private Timestamp passwordDate;
 
     /**
      * Whether the user account is disabled. Disabled accounts exist and can
@@ -141,6 +145,30 @@ public class UserModel extends ObjectModel {
      */
     public void setPasswordSalt(byte[] passwordSalt) {
         this.passwordSalt = passwordSalt;
+    }
+
+    /**
+     * Returns the date that this user's password was last set/reset. This
+     * value is required to be manually updated whenever the user's password is
+     * changed; it will not be automatically updated by the database.
+     *
+     * @return
+     *     The date that this user's password was last set/reset.
+     */
+    public Timestamp getPasswordDate() {
+        return passwordDate;
+    }
+
+    /**
+     * Sets the date that this user's password was last set/reset. This
+     * value is required to be manually updated whenever the user's password is
+     * changed; it will not be automatically updated by the database.
+     *
+     * @param passwordDate
+     *     The date that this user's password was last set/reset.
+     */
+    public void setPasswordDate(Timestamp passwordDate) {
+        this.passwordDate = passwordDate;
     }
 
     /**

@@ -34,7 +34,6 @@ import org.apache.guacamole.net.auth.permission.ObjectPermissionSet;
  * manipulating objects that can be children of other objects. This service will
  * automatically enforce the permissions of the current user.
  *
- * @author Michael Jumper
  * @param <InternalType>
  *     The specific internal implementation of the type of object this service
  *     provides access to.
@@ -172,9 +171,9 @@ public abstract class ModeledChildDirectoryObjectService<InternalType extends Mo
 
     @Override
     protected void beforeCreate(ModeledAuthenticatedUser user,
-            ModelType model) throws GuacamoleException {
+            ExternalType object, ModelType model) throws GuacamoleException {
 
-        super.beforeCreate(user, model);
+        super.beforeCreate(user, object, model);
         
         // Validate that we can update all applicable parents
         if (!canUpdateModifiedParents(user, null, model))
@@ -184,9 +183,9 @@ public abstract class ModeledChildDirectoryObjectService<InternalType extends Mo
 
     @Override
     protected void beforeUpdate(ModeledAuthenticatedUser user,
-            ModelType model) throws GuacamoleException {
+            InternalType object, ModelType model) throws GuacamoleException {
 
-        super.beforeUpdate(user, model);
+        super.beforeUpdate(user, object, model);
 
         // Validate that we can update all applicable parents
         if (!canUpdateModifiedParents(user, model.getIdentifier(), model))

@@ -22,6 +22,7 @@ package org.apache.guacamole.auth.jdbc.user;
 import com.google.inject.Inject;
 import java.sql.Date;
 import java.sql.Time;
+import java.sql.Timestamp;
 import java.text.ParseException;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -55,9 +56,6 @@ import org.slf4j.LoggerFactory;
 
 /**
  * An implementation of the User object which is backed by a database model.
- *
- * @author James Muehlner
- * @author Michael Jumper
  */
 public class ModeledUser extends ModeledDirectoryObject<UserModel> implements User {
 
@@ -186,11 +184,28 @@ public class ModeledUser extends ModeledDirectoryObject<UserModel> implements Us
      * user was retrieved from the database, this will be null.
      */
     private String password = null;
+
+    /**
+     * The data associated with this user's password at the time this user was
+     * queried. If the user is new, this will be null.
+     */
+    private PasswordRecordModel passwordRecord = null;
     
     /**
      * Creates a new, empty ModeledUser.
      */
     public ModeledUser() {
+    }
+
+    @Override
+    public void setModel(UserModel model) {
+
+        super.setModel(model);
+
+        // Store previous password, if any
+        if (model.getPasswordHash() != null)
+            this.passwordRecord = new PasswordRecordModel(model);
+
     }
 
     @Override
@@ -206,10 +221,10 @@ public class ModeledUser extends ModeledDirectoryObject<UserModel> implements Us
         // Store plaintext password internally
         this.password = password;
 
-        // If no password provided, clear password salt and hash
+        // If no password provided, set random password
         if (password == null) {
-            userModel.setPasswordSalt(null);
-            userModel.setPasswordHash(null);
+            userModel.setPasswordSalt(saltService.generateSalt());
+            userModel.setPasswordHash(saltService.generateSalt());
         }
 
         // Otherwise generate new salt and hash given password using newly-generated salt
@@ -222,6 +237,24 @@ public class ModeledUser extends ModeledDirectoryObject<UserModel> implements Us
             userModel.setPasswordHash(hash);
         }
 
+        userModel.setPasswordDate(new Timestamp(System.currentTimeMillis()));
+
+    }
+
+    /**
+     * Returns the this user's current password record. If the user is new, this
+     * will be null. Note that this may represent a different password than what
+     * is returned by getPassword(): unlike the other password-related functions
+     * of ModeledUser, the data returned by this function is historical and is
+     * unaffected by calls to setPassword(). It will always return the values
+     * stored in the database at the time this user was queried.
+     *
+     * @return
+     *     The historical data associated with this user's password, or null if
+     *     the user is new.
+     */
+    public PasswordRecordModel getPasswordRecord() {
+        return passwordRecord;
     }
 
     /**

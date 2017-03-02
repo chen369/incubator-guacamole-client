@@ -46,9 +46,6 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A service for managing auth tokens via the Guacamole REST API.
- * 
- * @author James Muehlner
- * @author Michael Jumper
  */
 @Path("/tokens")
 @Produces(MediaType.APPLICATION_JSON)
@@ -125,6 +122,8 @@ public class TokenRESTService {
         credentials.setPassword(password);
         credentials.setRequest(request);
         credentials.setSession(request.getSession(true));
+        credentials.setRemoteAddress(request.getRemoteAddr());
+        credentials.setRemoteHostname(request.getRemoteHost());
 
         return credentials;
 

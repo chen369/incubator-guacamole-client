@@ -63,6 +63,7 @@ import org.apache.guacamole.auth.jdbc.connection.ConnectionParameterMapper;
 import org.apache.guacamole.auth.jdbc.permission.SharingProfilePermissionMapper;
 import org.apache.guacamole.auth.jdbc.permission.SharingProfilePermissionService;
 import org.apache.guacamole.auth.jdbc.permission.SharingProfilePermissionSet;
+import org.apache.guacamole.auth.jdbc.security.PasswordPolicyService;
 import org.apache.guacamole.auth.jdbc.sharing.ConnectionSharingService;
 import org.apache.guacamole.auth.jdbc.sharing.HashSharedConnectionMap;
 import org.apache.guacamole.auth.jdbc.sharing.SecureRandomShareKeyGenerator;
@@ -74,6 +75,7 @@ import org.apache.guacamole.auth.jdbc.sharingprofile.SharingProfileMapper;
 import org.apache.guacamole.auth.jdbc.sharingprofile.SharingProfileParameterMapper;
 import org.apache.guacamole.auth.jdbc.sharingprofile.SharingProfileService;
 import org.apache.guacamole.auth.jdbc.tunnel.RestrictedGuacamoleTunnelService;
+import org.apache.guacamole.auth.jdbc.user.PasswordRecordMapper;
 import org.mybatis.guice.MyBatisModule;
 import org.mybatis.guice.datasource.builtin.PooledDataSourceProvider;
 
@@ -81,9 +83,6 @@ import org.mybatis.guice.datasource.builtin.PooledDataSourceProvider;
  * Guice module which configures the injections used by the JDBC authentication
  * provider base. This module MUST be included in the Guice injector, or
  * authentication providers based on JDBC will not function.
- *
- * @author Michael Jumper
- * @author James Muehlner
  */
 public class JDBCAuthenticationProviderModule extends MyBatisModule {
 
@@ -120,6 +119,7 @@ public class JDBCAuthenticationProviderModule extends MyBatisModule {
         addMapperClass(ConnectionPermissionMapper.class);
         addMapperClass(ConnectionRecordMapper.class);
         addMapperClass(ConnectionParameterMapper.class);
+        addMapperClass(PasswordRecordMapper.class);
         addMapperClass(SystemPermissionMapper.class);
         addMapperClass(SharingProfileMapper.class);
         addMapperClass(SharingProfileParameterMapper.class);
@@ -159,6 +159,7 @@ public class JDBCAuthenticationProviderModule extends MyBatisModule {
         bind(ConnectionService.class);
         bind(GuacamoleTunnelService.class).to(RestrictedGuacamoleTunnelService.class);
         bind(PasswordEncryptionService.class).to(SHA256PasswordEncryptionService.class);
+        bind(PasswordPolicyService.class);
         bind(SaltService.class).to(SecureRandomSaltService.class);
         bind(SharedConnectionMap.class).to(HashSharedConnectionMap.class).in(Scopes.SINGLETON);
         bind(ShareKeyGenerator.class).to(SecureRandomShareKeyGenerator.class).in(Scopes.SINGLETON);

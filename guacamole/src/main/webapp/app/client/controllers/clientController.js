@@ -35,6 +35,7 @@ angular.module('client').controller('clientController', ['$scope', '$routeParams
     var clipboardService      = $injector.get('clipboardService');
     var guacClientManager     = $injector.get('guacClientManager');
     var guacNotification      = $injector.get('guacNotification');
+    var iconService           = $injector.get('iconService');
     var preferenceService     = $injector.get('preferenceService');
     var tunnelService         = $injector.get('tunnelService');
     var userPageService       = $injector.get('userPageService');
@@ -82,7 +83,11 @@ angular.module('client').controller('clientController', ['$scope', '$routeParams
         0x0201: true,
         0x0202: true,
         0x0203: true,
-        0x0205: true,
+        0x0207: true,
+        0x0208: true,
+        0x0209: true,
+        0x020A: true,
+        0x020B: true,
         0x0301: true,
         0x0303: true,
         0x0308: true,
@@ -97,6 +102,8 @@ angular.module('client').controller('clientController', ['$scope', '$routeParams
         0x0200: true,
         0x0202: true,
         0x0203: true,
+        0x0207: true,
+        0x0208: true,
         0x0301: true,
         0x0308: true
     };
@@ -112,6 +119,8 @@ angular.module('client').controller('clientController', ['$scope', '$routeParams
         0x0203: true,
         0x0204: true,
         0x0205: true,
+        0x0207: true,
+        0x0208: true,
         0x0301: true,
         0x0303: true,
         0x0308: true,
@@ -126,6 +135,8 @@ angular.module('client').controller('clientController', ['$scope', '$routeParams
         0x0200: true,
         0x0202: true,
         0x0203: true,
+        0x0207: true,
+        0x0208: true,
         0x0308: true
     };
 
@@ -403,6 +414,11 @@ angular.module('client').controller('clientController', ['$scope', '$routeParams
 
     });
 
+    // Update page icon when thumbnail changes
+    $scope.$watch('client.thumbnail.canvas', function thumbnailChanged(canvas) {
+        iconService.setIcons(canvas);
+    });
+
     // Watch clipboard for new data, associating it with any pressed keys
     $scope.$watch('client.clipboardData', function clipboardChanged(data) {
 
@@ -578,7 +594,9 @@ angular.module('client').controller('clientController', ['$scope', '$routeParams
          || connectionState === ManagedClientState.ConnectionState.WAITING) {
             guacNotification.showStatus({
                 title: "CLIENT.DIALOG_HEADER_CONNECTING",
-                text: "CLIENT.TEXT_CLIENT_STATUS_" + connectionState.toUpperCase()
+                text: {
+                    key : "CLIENT.TEXT_CLIENT_STATUS_" + connectionState.toUpperCase()
+                }
             });
         }
 
@@ -595,7 +613,9 @@ angular.module('client').controller('clientController', ['$scope', '$routeParams
             notifyConnectionClosed({
                 className : "error",
                 title     : "CLIENT.DIALOG_HEADER_CONNECTION_ERROR",
-                text      : "CLIENT.ERROR_CLIENT_" + errorName,
+                text      : {
+                    key : "CLIENT.ERROR_CLIENT_" + errorName
+                },
                 countdown : countdown,
                 actions   : actions
             });
@@ -615,7 +635,9 @@ angular.module('client').controller('clientController', ['$scope', '$routeParams
             notifyConnectionClosed({
                 className : "error",
                 title     : "CLIENT.DIALOG_HEADER_CONNECTION_ERROR",
-                text      : "CLIENT.ERROR_TUNNEL_" + errorName,
+                text      : {
+                    key : "CLIENT.ERROR_TUNNEL_" + errorName
+                },
                 countdown : countdown,
                 actions   : actions
             });
@@ -626,7 +648,9 @@ angular.module('client').controller('clientController', ['$scope', '$routeParams
         else if (connectionState === ManagedClientState.ConnectionState.DISCONNECTED) {
             notifyConnectionClosed({
                 title   : "CLIENT.DIALOG_HEADER_DISCONNECTED",
-                text    : "CLIENT.TEXT_CLIENT_STATUS_" + connectionState.toUpperCase(),
+                text    : {
+                    key : "CLIENT.TEXT_CLIENT_STATUS_" + connectionState.toUpperCase()
+                },
                 actions : actions
             });
         }

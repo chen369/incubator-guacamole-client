@@ -41,8 +41,6 @@ import org.apache.guacamole.net.auth.permission.SystemPermissionSet;
 /**
  * Service which provides convenience methods for creating, retrieving, and
  * manipulating sharing profiles.
- *
- * @author Michael Jumper
  */
 public class SharingProfileService
         extends ModeledChildDirectoryObjectService<ModeledSharingProfile,
@@ -139,9 +137,10 @@ public class SharingProfileService
 
     @Override
     protected void beforeCreate(ModeledAuthenticatedUser user,
-            SharingProfileModel model) throws GuacamoleException {
+            SharingProfile object, SharingProfileModel model)
+            throws GuacamoleException {
 
-        super.beforeCreate(user, model);
+        super.beforeCreate(user, object, model);
         
         // Name must not be blank
         if (model.getName() == null || model.getName().trim().isEmpty())
@@ -156,9 +155,10 @@ public class SharingProfileService
 
     @Override
     protected void beforeUpdate(ModeledAuthenticatedUser user,
-            SharingProfileModel model) throws GuacamoleException {
+            ModeledSharingProfile object, SharingProfileModel model)
+            throws GuacamoleException {
 
-        super.beforeUpdate(user, model);
+        super.beforeUpdate(user, object, model);
         
         // Name must not be blank
         if (model.getName() == null || model.getName().trim().isEmpty())

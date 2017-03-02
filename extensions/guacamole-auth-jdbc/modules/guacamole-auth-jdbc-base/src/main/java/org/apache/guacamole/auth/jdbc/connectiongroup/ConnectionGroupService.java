@@ -43,8 +43,6 @@ import org.apache.guacamole.protocol.GuacamoleClientInformation;
 /**
  * Service which provides convenience methods for creating, retrieving, and
  * manipulating connection groups.
- *
- * @author Michael Jumper, James Muehlner
  */
 public class ConnectionGroupService extends ModeledChildDirectoryObjectService<ModeledConnectionGroup,
         ConnectionGroup, ConnectionGroupModel> {
@@ -139,9 +137,10 @@ public class ConnectionGroupService extends ModeledChildDirectoryObjectService<M
 
     @Override
     protected void beforeCreate(ModeledAuthenticatedUser user,
-            ConnectionGroupModel model) throws GuacamoleException {
+            ConnectionGroup object, ConnectionGroupModel model)
+            throws GuacamoleException {
 
-        super.beforeCreate(user, model);
+        super.beforeCreate(user, object, model);
         
         // Name must not be blank
         if (model.getName() == null || model.getName().trim().isEmpty())
@@ -156,9 +155,10 @@ public class ConnectionGroupService extends ModeledChildDirectoryObjectService<M
 
     @Override
     protected void beforeUpdate(ModeledAuthenticatedUser user,
-            ConnectionGroupModel model) throws GuacamoleException {
+            ModeledConnectionGroup object, ConnectionGroupModel model)
+            throws GuacamoleException {
 
-        super.beforeUpdate(user, model);
+        super.beforeUpdate(user, object, model);
         
         // Name must not be blank
         if (model.getName() == null || model.getName().trim().isEmpty())

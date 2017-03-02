@@ -19,15 +19,14 @@
 
 package org.apache.guacamole.rest.history;
 
+import javax.ws.rs.core.Response;
+import org.apache.guacamole.GuacamoleClientException;
 import org.apache.guacamole.net.auth.ConnectionRecordSet;
-import org.apache.guacamole.rest.APIError;
 import org.apache.guacamole.rest.APIException;
 
 /**
  * A sort predicate which species the property to use when sorting connection
  * records, along with the sort order.
- *
- * @author Michael Jumper
  */
 public class APIConnectionRecordSortPredicate {
 
@@ -111,8 +110,8 @@ public class APIConnectionRecordSortPredicate {
         // Bail out if sort property is not valid
         catch (IllegalArgumentException e) {
             throw new APIException(
-                APIError.Type.BAD_REQUEST,
-                String.format("Invalid sort property: \"%s\"", value)
+                Response.Status.BAD_REQUEST,
+                new GuacamoleClientException(String.format("Invalid sort property: \"%s\"", value))
             );
         }
 

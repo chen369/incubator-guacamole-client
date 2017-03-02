@@ -23,13 +23,11 @@ import org.apache.guacamole.GuacamoleException;
 import org.apache.guacamole.auth.jdbc.JDBCEnvironment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.guacamole.auth.jdbc.security.PasswordPolicy;
 
 /**
  * A MySQL-specific implementation of JDBCEnvironment provides database
  * properties specifically for MySQL.
- *
- * @author James Muehlner
- * @author Michael Jumper
  */
 public class MySQLEnvironment extends JDBCEnvironment {
 
@@ -218,6 +216,11 @@ public class MySQLEnvironment extends JDBCEnvironment {
             MySQLGuacamoleProperties.MYSQL_DEFAULT_MAX_GROUP_CONNECTIONS_PER_USER,
             DEFAULT_MAX_GROUP_CONNECTIONS_PER_USER
         );
+    }
+
+    @Override
+    public PasswordPolicy getPasswordPolicy() {
+        return new MySQLPasswordPolicy(this);
     }
 
     /**
