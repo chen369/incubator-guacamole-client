@@ -60,7 +60,7 @@ rm -Rf ~/.m2
 # Copy guacamole.war to destination
 #
 
-cp guacamole/target/*.war "$DESTINATION/guacamole.war"
+cp guacamole/target/*.war "$DESTINATION/ROOT.war"
 
 #
 # Copy JDBC auth extensions and SQL scripts
