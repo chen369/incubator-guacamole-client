@@ -34,7 +34,6 @@ CREATE TABLE `guacamole_connection_group` (
   `max_connections_per_user` int(11),
   `enable_session_affinity`  boolean NOT NULL DEFAULT 0,
 
-
   PRIMARY KEY (`connection_group_id`),
   UNIQUE KEY `connection_group_name_parent` (`connection_group_name`, `parent_id`),
 
@@ -57,9 +56,18 @@ CREATE TABLE `guacamole_connection` (
   `parent_id`           int(11),
   `protocol`            varchar(32)  NOT NULL,
   
+  -- Guacamole proxy (guacd) overrides
+  `proxy_port`              integer,
+  `proxy_hostname`          varchar(512),
+  `proxy_encryption_method` enum('NONE', 'SSL'),
+
   -- Concurrency limits
   `max_connections`          int(11),
   `max_connections_per_user` int(11),
+  
+  -- Load-balancing behavior
+  `connection_weight`        int(11),
+  `failover_only`            boolean NOT NULL DEFAULT 0,
 
   PRIMARY KEY (`connection_id`),
   UNIQUE KEY `connection_name_parent` (`connection_name`, `parent_id`),
@@ -101,6 +109,12 @@ CREATE TABLE `guacamole_user` (
 
   -- Timezone used for all date/time comparisons and interpretation
   `timezone` VARCHAR(64),
+
+  -- Profile information
+  `full_name`           VARCHAR(256),
+  `email_address`       VARCHAR(256),
+  `organization`        VARCHAR(256),
+  `organizational_role` VARCHAR(256),
 
   PRIMARY KEY (`user_id`),
   UNIQUE KEY `username` (`username`)
@@ -308,6 +322,7 @@ CREATE TABLE `guacamole_connection_history` (
   `history_id`           int(11)      NOT NULL AUTO_INCREMENT,
   `user_id`              int(11)      DEFAULT NULL,
   `username`             varchar(128) NOT NULL,
+  `remote_host`          varchar(256) DEFAULT NULL,
   `connection_id`        int(11)      DEFAULT NULL,
   `connection_name`      varchar(128) NOT NULL,
   `sharing_profile_id`   int(11)      DEFAULT NULL,

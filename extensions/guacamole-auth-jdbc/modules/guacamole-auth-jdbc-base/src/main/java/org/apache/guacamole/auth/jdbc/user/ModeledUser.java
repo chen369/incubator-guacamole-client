@@ -43,8 +43,10 @@ import org.apache.guacamole.auth.jdbc.permission.SharingProfilePermissionService
 import org.apache.guacamole.auth.jdbc.permission.UserPermissionService;
 import org.apache.guacamole.form.BooleanField;
 import org.apache.guacamole.form.DateField;
+import org.apache.guacamole.form.EmailField;
 import org.apache.guacamole.form.Field;
 import org.apache.guacamole.form.Form;
+import org.apache.guacamole.form.TextField;
 import org.apache.guacamole.form.TimeField;
 import org.apache.guacamole.form.TimeZoneField;
 import org.apache.guacamole.net.auth.User;
@@ -107,6 +109,17 @@ public class ModeledUser extends ModeledDirectoryObject<UserModel> implements Us
     public static final String TIMEZONE_ATTRIBUTE_NAME = "timezone";
 
     /**
+     * All attributes related to user profile information, within a logical
+     * form.
+     */
+    public static final Form PROFILE = new Form("profile", Arrays.<Field>asList(
+        new TextField(User.Attribute.FULL_NAME),
+        new EmailField(User.Attribute.EMAIL_ADDRESS),
+        new TextField(User.Attribute.ORGANIZATION),
+        new TextField(User.Attribute.ORGANIZATIONAL_ROLE)
+    ));
+
+    /**
      * All attributes related to restricting user accounts, within a logical
      * form.
      */
@@ -125,6 +138,7 @@ public class ModeledUser extends ModeledDirectoryObject<UserModel> implements Us
      * logical forms.
      */
     public static final Collection<Form> ATTRIBUTES = Collections.unmodifiableCollection(Arrays.asList(
+        PROFILE,
         ACCOUNT_RESTRICTIONS
     ));
 
@@ -175,6 +189,34 @@ public class ModeledUser extends ModeledDirectoryObject<UserModel> implements Us
      */
     @Inject
     private UserPermissionService userPermissionService;
+
+    /**
+     * Whether attributes which control access restrictions should be exposed
+     * via getAttributes() or allowed to be set via setAttributes().
+     */
+    private boolean exposeRestrictedAttributes = false;
+
+    /**
+     * Initializes this ModeledUser, associating it with the current
+     * authenticated user and populating it with data from the given user
+     * model.
+     *
+     * @param currentUser
+     *     The user that created or retrieved this object.
+     *
+     * @param model
+     *     The backing model object.
+     *
+     * @param exposeRestrictedAttributes
+     *     Whether attributes which control access restrictions should be
+     *     exposed via getAttributes() or allowed to be set via
+     *     setAttributes().
+     */
+    public void init(ModeledAuthenticatedUser currentUser, UserModel model,
+            boolean exposeRestrictedAttributes) {
+        super.init(currentUser, model);
+        this.exposeRestrictedAttributes = exposeRestrictedAttributes;
+    }
 
     /**
      * The plaintext password previously set by a call to setPassword(), if
@@ -309,10 +351,16 @@ public class ModeledUser extends ModeledDirectoryObject<UserModel> implements Us
         return userPermissionService.getPermissionSet(getCurrentUser(), this);
     }
 
-    @Override
-    public Map<String, String> getAttributes() {
-
-        Map<String, String> attributes = new HashMap<String, String>();
+    /**
+     * Stores all restricted (privileged) attributes within the given Map,
+     * pulling the values of those attributes from the underlying user model.
+     * If no value is yet defined for an attribute, that attribute will be set
+     * to null.
+     *
+     * @param attributes
+     *     The Map to store all restricted attributes within.
+     */
+    private void putRestrictedAttributes(Map<String, String> attributes) {
 
         // Set disabled attribute
         attributes.put(DISABLED_ATTRIBUTE_NAME, getModel().isDisabled() ? "true" : null);
@@ -335,7 +383,31 @@ public class ModeledUser extends ModeledDirectoryObject<UserModel> implements Us
         // Set timezone attribute
         attributes.put(TIMEZONE_ATTRIBUTE_NAME, getModel().getTimeZone());
 
-        return attributes;
+    }
+
+    /**
+     * Stores all unrestricted (unprivileged) attributes within the given Map,
+     * pulling the values of those attributes from the underlying user model.
+     * If no value is yet defined for an attribute, that attribute will be set
+     * to null.
+     *
+     * @param attributes
+     *     The Map to store all unrestricted attributes within.
+     */
+    private void putUnrestrictedAttributes(Map<String, String> attributes) {
+
+        // Set full name attribute
+        attributes.put(User.Attribute.FULL_NAME, getModel().getFullName());
+
+        // Set email address attribute
+        attributes.put(User.Attribute.EMAIL_ADDRESS, getModel().getEmailAddress());
+
+        // Set organization attribute
+        attributes.put(User.Attribute.ORGANIZATION, getModel().getOrganization());
+
+        // Set role attribute
+        attributes.put(User.Attribute.ORGANIZATIONAL_ROLE, getModel().getOrganizationalRole());
+
     }
 
     /**
@@ -396,8 +468,14 @@ public class ModeledUser extends ModeledDirectoryObject<UserModel> implements Us
 
     }
 
-    @Override
-    public void setAttributes(Map<String, String> attributes) {
+    /**
+     * Stores all restricted (privileged) attributes within the underlying user
+     * model, pulling the values of those attributes from the given Map.
+     *
+     * @param attributes
+     *     The Map to pull all restricted attributes from.
+     */
+    private void setRestrictedAttributes(Map<String, String> attributes) {
 
         // Translate disabled attribute
         getModel().setDisabled("true".equals(attributes.get(DISABLED_ATTRIBUTE_NAME)));
@@ -435,6 +513,56 @@ public class ModeledUser extends ModeledDirectoryObject<UserModel> implements Us
 
         // Translate timezone attribute
         getModel().setTimeZone(TimeZoneField.parse(attributes.get(TIMEZONE_ATTRIBUTE_NAME)));
+
+    }
+
+    /**
+     * Stores all unrestricted (unprivileged) attributes within the underlying
+     * user model, pulling the values of those attributes from the given Map.
+     *
+     * @param attributes
+     *     The Map to pull all unrestricted attributes from.
+     */
+    private void setUnrestrictedAttributes(Map<String, String> attributes) {
+
+        // Translate full name attribute
+        getModel().setFullName(TextField.parse(attributes.get(User.Attribute.FULL_NAME)));
+
+        // Translate email address attribute
+        getModel().setEmailAddress(TextField.parse(attributes.get(User.Attribute.EMAIL_ADDRESS)));
+
+        // Translate organization attribute
+        getModel().setOrganization(TextField.parse(attributes.get(User.Attribute.ORGANIZATION)));
+
+        // Translate role attribute
+        getModel().setOrganizationalRole(TextField.parse(attributes.get(User.Attribute.ORGANIZATIONAL_ROLE)));
+
+    }
+
+    @Override
+    public Map<String, String> getAttributes() {
+
+        Map<String, String> attributes = new HashMap<String, String>();
+
+        // Always include unrestricted attributes
+        putUnrestrictedAttributes(attributes);
+
+        // Include restricted attributes only if they should be exposed
+        if (exposeRestrictedAttributes)
+            putRestrictedAttributes(attributes);
+
+        return attributes;
+    }
+
+    @Override
+    public void setAttributes(Map<String, String> attributes) {
+
+        // Always assign unrestricted attributes
+        setUnrestrictedAttributes(attributes);
+
+        // Assign restricted attributes only if they are exposed
+        if (exposeRestrictedAttributes)
+            setRestrictedAttributes(attributes);
 
     }
 
@@ -636,6 +764,32 @@ public class ModeledUser extends ModeledDirectoryObject<UserModel> implements Us
      */
     public boolean isAccountAccessible() {
         return isActive(getAccessWindowStart(), getAccessWindowEnd());
+    }
+
+    /**
+     * Returns whether this user account has been disabled. The credentials of
+     * disabled user accounts are treated as invalid, effectively disabling
+     * that user's access to data for which they would otherwise have
+     * permission.
+     *
+     * @return
+     *     true if this user account has been disabled, false otherwise.
+     */
+    public boolean isDisabled() {
+        return getModel().isDisabled();
+    }
+
+    /**
+     * Returns whether this user's password has expired. If a user's password
+     * is expired, it must be immediately changed upon login. A user account
+     * with an expired password cannot be used until the password has been
+     * changed.
+     *
+     * @return
+     *     true if this user's password has expired, false otherwise.
+     */
+    public boolean isExpired() {
+        return getModel().isExpired();
     }
 
 }

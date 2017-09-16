@@ -50,6 +50,32 @@
         },
 
         {
+            "name"  : "gateway",
+            "fields" : [
+                {
+                    "name"  : "gateway-hostname",
+                    "type"  : "TEXT"
+                },
+                {
+                    "name"  : "gateway-port",
+                    "type"  : "NUMERIC"
+                },
+                {
+                    "name"  : "gateway-username",
+                    "type"  : "USERNAME"
+                },
+                {
+                    "name"  : "gateway-password",
+                    "type"  : "PASSWORD"
+                },
+                {
+                    "name"  : "gateway-domain",
+                    "type"  : "TEXT"
+                }
+            ]
+        },
+
+        {
             "name"  : "basic-parameters",
             "fields" : [
                 {
@@ -229,6 +255,16 @@
         },
 
         {
+            "name"  : "load-balancing",
+            "fields" : [
+                {
+                    "name"  : "load-balance-info",
+                    "type"  : "TEXT"
+                }
+            ]
+        },
+
+        {
             "name" : "recording",
             "fields" : [
                 {
@@ -280,8 +316,16 @@
                     "type"  : "PASSWORD"
                 },
                 {
+                    "name"  : "sftp-root-directory",
+                    "type"  : "TEXT"
+                },
+                {
                     "name"  : "sftp-directory",
                     "type"  : "TEXT"
+                },
+                {
+                    "name"  : "sftp-server-alive-interval",
+                    "type"  : "NUMERIC"
                 }
             ]
         }

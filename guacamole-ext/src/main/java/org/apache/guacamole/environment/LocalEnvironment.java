@@ -30,6 +30,7 @@ import java.util.Properties;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.apache.guacamole.GuacamoleException;
 import org.apache.guacamole.GuacamoleServerException;
+import org.apache.guacamole.net.auth.GuacamoleProxyConfiguration;
 import org.apache.guacamole.properties.GuacamoleProperty;
 import org.apache.guacamole.protocols.ProtocolInfo;
 import org.slf4j.Logger;
@@ -52,6 +53,24 @@ public class LocalEnvironment implements Environment {
      */
     private static final String[] KNOWN_PROTOCOLS = new String[]{
         "vnc", "rdp", "ssh", "telnet"};
+
+    /**
+     * The hostname to use when connecting to guacd if no hostname is provided
+     * within guacamole.properties.
+     */
+    private static final String DEFAULT_GUACD_HOSTNAME = "localhost";
+
+    /**
+     * The port to use when connecting to guacd if no port is provided within
+     * guacamole.properties.
+     */
+    private static final int DEFAULT_GUACD_PORT = 4822;
+
+    /**
+     * Whether SSL/TLS is enabled for connections to guacd if not specified
+     * within guacamole.properties.
+     */
+    private static final boolean DEFAULT_GUACD_SSL = false;
 
     /**
      * All properties read from guacamole.properties.
@@ -84,6 +103,7 @@ public class LocalEnvironment implements Environment {
 
         // Determine location of GUACAMOLE_HOME
         guacHome = findGuacamoleHome();
+        logger.info("GUACAMOLE_HOME is \"{}\".", guacHome.getAbsolutePath());
 
         // Read properties
         properties = new Properties();
@@ -127,7 +147,8 @@ public class LocalEnvironment implements Environment {
      * Locates the Guacamole home directory by checking, in order:
      * the guacamole.home system property, the GUACAMOLE_HOME environment
      * variable, and finally the .guacamole directory in the home directory of
-     * the user running the servlet container.
+     * the user running the servlet container. If even the .guacamole directory
+     * doesn't exist, then /etc/guacamole will be used.
      *
      * @return The File representing the Guacamole home directory, which may
      *         or may not exist, and may turn out to not be a directory.
@@ -147,9 +168,18 @@ public class LocalEnvironment implements Environment {
         if (desiredDir != null)
             guacHome = new File(desiredDir);
 
-        // If not explicitly specified, use ~/.guacamole
-        else
+        // If not explicitly specified, use standard locations
+        else {
+
+            // Try ~/.guacamole first
             guacHome = new File(System.getProperty("user.home"), ".guacamole");
+
+            // If that doesn't exist, try /etc/guacamole if the /etc directory
+            // exists on this system
+            if (!guacHome.exists() && new File("/etc").exists())
+                guacHome = new File("/etc/guacamole");
+
+        }
 
         // Return discovered directory
         return guacHome;
@@ -311,6 +341,19 @@ public class LocalEnvironment implements Environment {
     @Override
     public ProtocolInfo getProtocol(String name) {
         return availableProtocols.get(name);
+    }
+
+    @Override
+    public GuacamoleProxyConfiguration getDefaultGuacamoleProxyConfiguration()
+            throws GuacamoleException {
+
+        // Parse guacd hostname/port/ssl properties
+        return new GuacamoleProxyConfiguration(
+            getProperty(Environment.GUACD_HOSTNAME, DEFAULT_GUACD_HOSTNAME),
+            getProperty(Environment.GUACD_PORT, DEFAULT_GUACD_PORT),
+            getProperty(Environment.GUACD_SSL, DEFAULT_GUACD_SSL)
+        );
+
     }
 
 }

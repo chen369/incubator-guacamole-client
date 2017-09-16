@@ -137,8 +137,8 @@ angular.module('index').controller('indexController', ['$scope', '$injector',
 
     // Attempt to read the clipboard if it may have changed
     $window.addEventListener('load',  checkClipboard, true);
-    $window.addEventListener('copy',  checkClipboard, true);
-    $window.addEventListener('cut',   checkClipboard, true);
+    $window.addEventListener('copy',  checkClipboard);
+    $window.addEventListener('cut',   checkClipboard);
     $window.addEventListener('focus', function focusGained(e) {
 
         // Only recheck clipboard if it's the window itself that gained focus
@@ -165,18 +165,17 @@ angular.module('index').controller('indexController', ['$scope', '$injector',
         $scope.expectedCredentials = error.expected;
     });
 
-    // Clear login screen if login was successful
-    $scope.$on('guacLogin', function loginSuccessful() {
-        $scope.loginHelpText = null;
-        $scope.acceptedCredentials = null;
-        $scope.expectedCredentials = null;
-    });
-
     // Update title and CSS class upon navigation
     $scope.$on('$routeChangeSuccess', function(event, current, previous) {
        
         // If the current route is available
         if (current.$$route) {
+
+            // Clear login screen if route change was successful (and thus
+            // login was either successful or not required)
+            $scope.loginHelpText = null;
+            $scope.acceptedCredentials = null;
+            $scope.expectedCredentials = null;
 
             // Set title
             var title = current.$$route.title;

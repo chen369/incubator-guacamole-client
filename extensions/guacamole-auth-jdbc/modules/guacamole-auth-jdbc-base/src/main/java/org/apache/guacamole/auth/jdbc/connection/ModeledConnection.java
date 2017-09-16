@@ -32,12 +32,17 @@ import org.apache.guacamole.auth.jdbc.tunnel.GuacamoleTunnelService;
 import org.apache.guacamole.GuacamoleException;
 import org.apache.guacamole.auth.jdbc.JDBCEnvironment;
 import org.apache.guacamole.auth.jdbc.base.ModeledChildDirectoryObject;
+import org.apache.guacamole.form.BooleanField;
+import org.apache.guacamole.form.EnumField;
 import org.apache.guacamole.form.Field;
 import org.apache.guacamole.form.Form;
 import org.apache.guacamole.form.NumericField;
+import org.apache.guacamole.form.TextField;
 import org.apache.guacamole.net.GuacamoleTunnel;
 import org.apache.guacamole.net.auth.Connection;
 import org.apache.guacamole.net.auth.ConnectionRecord;
+import org.apache.guacamole.net.auth.GuacamoleProxyConfiguration;
+import org.apache.guacamole.net.auth.GuacamoleProxyConfiguration.EncryptionMethod;
 import org.apache.guacamole.protocol.GuacamoleClientInformation;
 import org.apache.guacamole.protocol.GuacamoleConfiguration;
 import org.slf4j.Logger;
@@ -56,6 +61,51 @@ public class ModeledConnection extends ModeledChildDirectoryObject<ConnectionMod
     private static final Logger logger = LoggerFactory.getLogger(ModeledConnection.class);
 
     /**
+     * The name of the attribute which overrides the hostname used to connect
+     * to guacd for this connection.
+     */
+    public static final String GUACD_HOSTNAME_NAME = "guacd-hostname";
+
+    /**
+     * The name of the attribute which overrides the port used to connect to
+     * guacd for this connection.
+     */
+    public static final String GUACD_PORT_NAME = "guacd-port";
+
+    /**
+     * The name of the attribute which overrides the encryption method used to
+     * connect to guacd for this connection.
+     */
+    public static final String GUACD_ENCRYPTION_NAME = "guacd-encryption";
+
+    /**
+     * The value specified for the "guacd-encryption" attribute if encryption
+     * should not be used to connect to guacd.
+     */
+    public static final String GUACD_ENCRYPTION_VALUE_NONE = "none";
+
+    /**
+     * The value specified for the "guacd-encryption" attribute if SSL/TLS
+     * encryption should be used to connect to guacd.
+     */
+    public static final String GUACD_ENCRYPTION_VALUE_SSL = "ssl";
+
+    /**
+     * All attributes which describe the configuration of the guacd instance
+     * which will be used to connect to the remote desktop described by this
+     * connection.
+     */
+    public static final Form GUACD_PARAMETERS = new Form("guacd", Arrays.<Field>asList(
+        new TextField(GUACD_HOSTNAME_NAME),
+        new NumericField(GUACD_PORT_NAME),
+        new EnumField(GUACD_ENCRYPTION_NAME, Arrays.asList(
+            "",
+            GUACD_ENCRYPTION_VALUE_NONE,
+            GUACD_ENCRYPTION_VALUE_SSL
+        ))
+    ));
+
+    /**
      * The name of the attribute which controls the maximum number of
      * concurrent connections.
      */
@@ -68,6 +118,18 @@ public class ModeledConnection extends ModeledChildDirectoryObject<ConnectionMod
     public static final String MAX_CONNECTIONS_PER_USER_NAME = "max-connections-per-user";
 
     /**
+     * The connection weight attribute used for weighted load balancing algorithms.
+     */
+    public static final String CONNECTION_WEIGHT = "weight";
+
+    /**
+     * The name of the attribute which controls whether the connection should
+     * be used as a spare only (all other non-spare connections within the same
+     * balancing group should be preferred).
+     */
+    public static final String FAILOVER_ONLY_NAME = "failover-only";
+
+    /**
      * All attributes related to restricting user accounts, within a logical
      * form.
      */
@@ -77,11 +139,21 @@ public class ModeledConnection extends ModeledChildDirectoryObject<ConnectionMod
     ));
 
     /**
+     * All attributes related to load balancing in a logical form.
+     */
+    public static final Form LOAD_BALANCING = new Form("load-balancing", Arrays.<Field>asList(
+        new NumericField(CONNECTION_WEIGHT),
+        new BooleanField(FAILOVER_ONLY_NAME, "true")
+    ));
+
+    /**
      * All possible attributes of connection objects organized as individual,
      * logical forms.
      */
     public static final Collection<Form> ATTRIBUTES = Collections.unmodifiableCollection(Arrays.asList(
-        CONCURRENCY_LIMITS
+        CONCURRENCY_LIMITS,
+        LOAD_BALANCING,
+        GUACD_PARAMETERS
     ));
 
     /**
@@ -186,6 +258,41 @@ public class ModeledConnection extends ModeledChildDirectoryObject<ConnectionMod
         // Set per-user connection limit attribute
         attributes.put(MAX_CONNECTIONS_PER_USER_NAME, NumericField.format(getModel().getMaxConnectionsPerUser()));
 
+        // Set guacd (proxy) hostname and port
+        attributes.put(GUACD_HOSTNAME_NAME, getModel().getProxyHostname());
+        attributes.put(GUACD_PORT_NAME, NumericField.format(getModel().getProxyPort()));
+
+        // Set guacd (proxy) encryption method
+        EncryptionMethod encryptionMethod = getModel().getProxyEncryptionMethod();
+        if (encryptionMethod == null)
+            attributes.put(GUACD_ENCRYPTION_NAME, null);
+
+        else {
+            switch (encryptionMethod) {
+
+                // Unencrypted
+                case NONE:
+                    attributes.put(GUACD_ENCRYPTION_NAME, GUACD_ENCRYPTION_VALUE_NONE);
+                    break;
+
+                // SSL / TLS encryption
+                case SSL:
+                    attributes.put(GUACD_ENCRYPTION_NAME, GUACD_ENCRYPTION_VALUE_SSL);
+                    break;
+
+                // Unimplemented / unspecified
+                default:
+                    attributes.put(GUACD_ENCRYPTION_NAME, null);
+
+            }
+        }
+
+        // Set connection weight
+        attributes.put(CONNECTION_WEIGHT, NumericField.format(getModel().getConnectionWeight()));
+
+        // Set whether connection is failover-only
+        attributes.put(FAILOVER_ONLY_NAME, getModel().isFailoverOnly() ? "true" : null);
+
         return attributes;
     }
 
@@ -205,6 +312,41 @@ public class ModeledConnection extends ModeledChildDirectoryObject<ConnectionMod
             logger.warn("Not setting maximum connections per user: {}", e.getMessage());
             logger.debug("Unable to parse numeric attribute.", e);
         }
+
+        // Translate guacd hostname
+        getModel().setProxyHostname(TextField.parse(attributes.get(GUACD_HOSTNAME_NAME)));
+
+        // Translate guacd port
+        try { getModel().setProxyPort(NumericField.parse(attributes.get(GUACD_PORT_NAME))); }
+        catch (NumberFormatException e) {
+            logger.warn("Not setting guacd port: {}", e.getMessage());
+            logger.debug("Unable to parse numeric attribute.", e);
+        }
+
+        // Translate guacd encryption method
+        String encryptionMethod = attributes.get(GUACD_ENCRYPTION_NAME);
+
+        // Unencrypted
+        if (GUACD_ENCRYPTION_VALUE_NONE.equals(encryptionMethod))
+            getModel().setProxyEncryptionMethod(EncryptionMethod.NONE);
+
+        // SSL / TLS
+        else if (GUACD_ENCRYPTION_VALUE_SSL.equals(encryptionMethod))
+            getModel().setProxyEncryptionMethod(EncryptionMethod.SSL);
+
+        // Unimplemented / unspecified
+        else
+            getModel().setProxyEncryptionMethod(null);
+
+        // Translate connection weight attribute
+        try { getModel().setConnectionWeight(NumericField.parse(attributes.get(CONNECTION_WEIGHT))); }
+        catch (NumberFormatException e) {
+            logger.warn("Not setting the connection weight: {}", e.getMessage());
+            logger.debug("Unable to parse numeric attribute.", e);
+        }
+
+        // Translate failover-only attribute
+        getModel().setFailoverOnly("true".equals(attributes.get(FAILOVER_ONLY_NAME)));
 
     }
 
@@ -255,6 +397,71 @@ public class ModeledConnection extends ModeledChildDirectoryObject<ConnectionMod
         // Otherwise use defined value
         return value;
 
+    }
+
+    /**
+     * Returns the connection information which should be used to connect to
+     * guacd when establishing a connection to the remote desktop described by
+     * this connection. If no such information is defined for this specific
+     * remote desktop connection, the default guacd connection information will
+     * be used instead, as defined by JDBCEnvironment.
+     *
+     * @return
+     *     The connection information which should be used to connect to guacd
+     *     when establishing a connection to the remote desktop described by
+     *     this connection.
+     *
+     * @throws GuacamoleException
+     *     If the connection information for guacd cannot be parsed.
+     */
+    public GuacamoleProxyConfiguration getGuacamoleProxyConfiguration()
+            throws GuacamoleException {
+
+        // Retrieve default proxy configuration from environment
+        GuacamoleProxyConfiguration defaultConfig = environment.getDefaultGuacamoleProxyConfiguration();
+
+        // Retrieve proxy configuration overrides from model
+        String hostname = getModel().getProxyHostname();
+        Integer port = getModel().getProxyPort();
+        EncryptionMethod encryptionMethod = getModel().getProxyEncryptionMethod();
+
+        // Produce new proxy configuration from model, using defaults where unspecified
+        return new GuacamoleProxyConfiguration(
+            hostname         != null ? hostname         : defaultConfig.getHostname(),
+            port             != null ? port             : defaultConfig.getPort(),
+            encryptionMethod != null ? encryptionMethod : defaultConfig.getEncryptionMethod()
+        );
+    }
+
+    /** 
+     * Returns the weight of the connection used in applying weighted
+     * load balancing algorithms, or a default of 1 if the 
+     * attribute is undefined.
+     *  
+     * @return
+     *     The weight of the connection used in applying weighted
+     *     load balancing algorithms.
+     */
+    public int getConnectionWeight() {
+
+        Integer connectionWeight = getModel().getConnectionWeight();
+        if (connectionWeight == null)
+            return 1;
+        return connectionWeight;
+
+    }
+
+    /**
+     * Returns whether this connection should be reserved for failover.
+     * Failover-only connections within a balancing group are only used when
+     * all non-failover connections are unavailable.
+     *
+     * @return
+     *     true if this connection should be reserved for failover, false
+     *     otherwise.
+     */
+    public boolean isFailoverOnly() {
+        return getModel().isFailoverOnly();
     }
 
 }

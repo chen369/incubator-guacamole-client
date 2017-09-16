@@ -147,15 +147,35 @@ public class UserService extends ModeledDirectoryObjectService<ModeledUser, User
 
     @Override
     protected ModeledUser getObjectInstance(ModeledAuthenticatedUser currentUser,
-            UserModel model) {
+            UserModel model) throws GuacamoleException {
+
+        boolean exposeRestrictedAttributes;
+
+        // Expose restricted attributes if the user does not yet exist
+        if (model.getObjectID() == null)
+            exposeRestrictedAttributes = true;
+
+        // Otherwise, if the user permissions are available, expose restricted
+        // attributes only if the user has ADMINISTER permission
+        else if (currentUser != null)
+            exposeRestrictedAttributes = hasObjectPermission(currentUser,
+                    model.getIdentifier(), ObjectPermission.Type.ADMINISTER);
+
+        // If user permissions are not available, do not expose anything
+        else
+            exposeRestrictedAttributes = false;
+
+        // Produce ModeledUser exposing only those attributes for which the
+        // current user has permission
         ModeledUser user = userProvider.get();
-        user.init(currentUser, model);
+        user.init(currentUser, model, exposeRestrictedAttributes);
         return user;
+
     }
 
     @Override
     protected UserModel getModelInstance(ModeledAuthenticatedUser currentUser,
-            final User object) {
+            final User object) throws GuacamoleException {
 
         // Create new ModeledUser backed by blank model
         UserModel model = new UserModel();
@@ -292,9 +312,10 @@ public class UserService extends ModeledDirectoryObjectService<ModeledUser, User
 
     /**
      * Retrieves the user corresponding to the given credentials from the
-     * database. If the user account is expired, and the credentials contain
-     * the necessary additional parameters to reset the user's password, the
-     * password is reset.
+     * database. Note that this function will not enforce any additional
+     * account restrictions, including explicitly disabled accounts,
+     * scheduling, and password expiration. It is the responsibility of the
+     * caller to enforce such restrictions, if desired.
      *
      * @param authenticationProvider
      *     The AuthenticationProvider on behalf of which the user is being
@@ -322,10 +343,6 @@ public class UserService extends ModeledDirectoryObjectService<ModeledUser, User
         if (userModel == null)
             return null;
 
-        // If user is disabled, pretend user does not exist
-        if (userModel.isDisabled())
-            return null;
-
         // Verify provided password is correct
         byte[] hash = encryptionService.createPasswordHash(password, userModel.getPasswordSalt());
         if (!Arrays.equals(hash, userModel.getPasswordHash()))
@@ -334,14 +351,6 @@ public class UserService extends ModeledDirectoryObjectService<ModeledUser, User
         // Create corresponding user object, set up cyclic reference
         ModeledUser user = getObjectInstance(null, userModel);
         user.setCurrentUser(new ModeledAuthenticatedUser(authenticationProvider, user, credentials));
-
-        // Verify user account is still valid as of today
-        if (!user.isAccountValid())
-            throw new GuacamoleClientException("LOGIN.ERROR_NOT_VALID");
-
-        // Verify user account is allowed to be used at the current time
-        if (!user.isAccountAccessible())
-            throw new GuacamoleClientException("LOGIN.ERROR_NOT_ACCESSIBLE");
 
         // Return now-authenticated user
         return user.getCurrentUser();
@@ -362,9 +371,13 @@ public class UserService extends ModeledDirectoryObjectService<ModeledUser, User
      * @return
      *     The ModeledUser which corresponds to the given AuthenticatedUser, or
      *     null if no such user exists.
+     *
+     * @throws GuacamoleException
+     *     If a ModeledUser object for the user corresponding to the given
+     *     AuthenticatedUser cannot be created.
      */
     public ModeledUser retrieveUser(AuthenticationProvider authenticationProvider,
-            AuthenticatedUser authenticatedUser) {
+            AuthenticatedUser authenticatedUser) throws GuacamoleException {
 
         // If we already queried this user, return that rather than querying again
         if (authenticatedUser instanceof ModeledAuthenticatedUser)
